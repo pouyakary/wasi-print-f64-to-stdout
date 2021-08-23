@@ -36,23 +36,18 @@
         ;; so that we can later copy from :)
         (data (global.get $ALPHABET-OFFSET) "0123456789\n ")
 
-        ;; Compute UTF-8 offset for strings
-        (func $compute-utf8-offset (param $index i32) (result i32)
-            (i32.mul (i32.const 1) (local.get $index))
-        )
-
         ;; Finds the character we are looking
         ;; for from the encoded data.
         (func $get-alphabet-code (param $alphabet-index i32) (result i32)
-            (i32.load (call $compute-utf8-offset (i32.add (global.get $ALPHABET-OFFSET)
-                                                          (local.get $alphabet-index))))
+            (i32.load (i32.add (global.get $ALPHABET-OFFSET)
+                               (local.get $alphabet-index)))
         )
 
         ;; Copying digit data from from the
         ;; alphabet to the offset for stdout
         (func $encode-digit-to-string-at-offset (param $offset i32) (param $digit i32)
-            (i32.store (call $compute-utf8-offset (i32.add (global.get $STDOUT-OFFSET)
-                                                           (local.get $offset)))
+            (i32.store (i32.add (global.get $STDOUT-OFFSET)
+                                (local.get $offset))
                        (call $get-alphabet-code (local.get $digit)))
         )
 
