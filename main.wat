@@ -222,11 +222,37 @@
         )
 
     ;;
+    ;; ─── FACTORIAL ──────────────────────────────────────────────────────────────────
+    ;;
+
+        ;; A simple factorial so that we
+        ;; can test our awesome thing :)
+        (func $factorial-recursive (param $n f64) (result f64)
+            ;; is n == 1?
+            (if (result f64) (f64.eq (local.get $n) (f64.const 1))
+                (then   ;; if so, return: 1
+                        f64.const 1
+                )
+                (else   ;; n - 1
+                        local.get $n
+                        f64.const 1
+                        f64.sub
+                        ;; fac(n - 1)
+                        call $factorial-recursive
+                        ;; n * fac(n - 1)
+                        local.get $n
+                        f64.mul
+                )
+            )
+        )
+
+    ;;
     ;; ─── MAIN ───────────────────────────────────────────────────────────────────────
     ;;
 
         (func $main (export "_start")
-            (call $print-number (f64.const 1235813121))
+            (call $factorial-recursive (f64.const 17))
+            (call $print-number)
         )
 
     ;; ────────────────────────────────────────────────────────────────────────────────
