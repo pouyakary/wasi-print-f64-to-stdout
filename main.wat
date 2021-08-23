@@ -34,7 +34,7 @@
 
         ;; In memory encoding of the alphabets
         ;; so that we can later copy from :)
-        (data (global.get $ALPHABET-OFFSET) "0123456789\n ")
+        (data (global.get $ALPHABET-OFFSET) "0123456789\n ->")
 
         ;; Finds the character we are looking
         ;; for from the encoded data.
@@ -176,24 +176,38 @@
         (func $print-number (param $printable f64)
             (local $size  i32)
             (local $index i32)
+            (local $offset-from-begining i32) ;; for "--> ""
+            (local $number-size i32)
 
             (local.set $index (i32.const 0))
-            (local.set $size  (call $get-number-digits (local.get $printable)))
+            (local.set $offset-from-begining (i32.const 4))
+
+            (local.set $number-size (call $get-number-digits (local.get $printable)))
+
+            (local.set $size (i32.add (local.get $offset-from-begining)
+                                      (local.get $number-size)))
 
             ;; set the size of what we are
             ;; going to print
             (call $set-stdout-message-size (i32.add (local.get $size)
                                                     (i32.const 1)))
 
+            ;; printing the "--> "
+            (call $encode-digit-to-string-at-offset (i32.const 0) (i32.const 12)) ;; "-"
+            (call $encode-digit-to-string-at-offset (i32.const 1) (i32.const 12)) ;; "-"
+            (call $encode-digit-to-string-at-offset (i32.const 2) (i32.const 13)) ;; ">"
+            (call $encode-digit-to-string-at-offset (i32.const 3) (i32.const 11)) ;; " "
+
             ;; for each digit, encode the digit
             ;; to the buffer memory
             (block (result)
                 (loop (result)
-                    (if (result) (i32.le_u (local.get $index) (local.get $size))
+                    (if (result) (i32.le_u (local.get $index) (local.get $number-size))
                         (then   ;; print a 7 there
-                                (call $encode-digit-to-string-at-offset (local.get $index)
+                                (call $encode-digit-to-string-at-offset (i32.add (local.get $index)
+                                                                                 (local.get $offset-from-begining))
                                                                         (call $get-digit-of-number (local.get $printable)
-                                                                                                   (local.get $size)
+                                                                                                   (local.get $number-size)
                                                                                                    (local.get $index)))
                                 ;; index++
                                 (local.set $index (i32.add (local.get $index)
