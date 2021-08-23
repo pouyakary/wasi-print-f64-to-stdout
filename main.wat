@@ -21,28 +21,38 @@
 
         ;; Some safe offsets so that our stuff
         ;; don't overlap in the momry.
-        (global $ALPHABET_OFFSET i32 (i32.const 100))
-        (global $STDOUT_OFFSET i32 (i32.const 150))
 
-        (global $MUT-STDOUT-MESSAGE-SIZE (mut i32)
-                                         (i32.const 0))
+        (global $STDOUT-RESULT-LENGTH-OFFSET i32 (i32.const 250))
+
+        (global $ALPHABET-OFFSET i32 (i32.const 300))
+
+        (global $STDOUT-OFFSET i32 (i32.const 350))
+
+        (global $MUT-STDOUT-MESSAGE-SIZE (mut i32) (i32.const 0))
+
+        (global $STDOUT-FILE-DISCRIPTOR i32 (i32.const 1))
 
         ;; In memory encoding of the alphabets
         ;; so that we can later copy from :)
-        (data (global.get $ALPHABET_OFFSET) "0123456789\n ")
+        (data (global.get $ALPHABET-OFFSET) "0123456789\n ")
+
+        ;; Compute UTF-8 offset for strings
+        (func $compute-utf8-offset (param $index i32) (result i32)
+            (i32.mul (i32.const 1) (local.get $index))
+        )
 
         ;; Finds the character we are looking
         ;; for from the encoded data.
         (func $get-alphabet-code (param $alphabet-index i32) (result i32)
-            (i32.load (i32.add (global.get $ALPHABET_OFFSET)
-                               (local.get $alphabet-index)))
+            (i32.load (call $compute-utf8-offset (i32.add (global.get $ALPHABET-OFFSET)
+                                                          (local.get $alphabet-index))))
         )
 
         ;; Copying digit data from from the
         ;; alphabet to the offset for stdout
         (func $encode-digit-to-string-at-offset (param $offset i32) (param $digit i32)
-            (i32.store (i32.add (global.get $STDOUT_OFFSET)
-                                (local.get $offset))
+            (i32.store (call $compute-utf8-offset (i32.add (global.get $STDOUT-OFFSET)
+                                                           (local.get $offset)))
                        (call $get-alphabet-code (local.get $digit)))
         )
 
@@ -53,33 +63,96 @@
 
         ;; Print to STDOUT
         (func $print-to-stdout
-            (i32.store (i32.const 0)
-                       (global.get $STDOUT_OFFSET))
-            (i32.store (i32.const 4)
+            ;; The expected I/O Vector
+            (i32.store (i32.const 0) ;; Pointer to the start of the STDOUT message
+                       (global.get $STDOUT-OFFSET))
+            (i32.store (i32.const 4) ;; Length of the message
                        (global.get $MUT-STDOUT-MESSAGE-SIZE))
-            (call $fd-write (i32.const 1)
-                            (i32.const 0)
-                            (i32.const 1)
-                            (i32.const 20))
+            ;; Writing
+            (call $fd-write (i32.const 1)   ;; STDOUT
+                            (i32.const 0)   ;; pointer to the I/O Vector where we stored the location of stdout offset
+                            (i32.const 1)   ;; number of strings we are printing
+                            (global.get $STDOUT-RESULT-LENGTH-OFFSET))
+            ;; Memory stuff
             (drop)
         )
 
     ;;
-    ;; ─── PRINT 17 ───────────────────────────────────────────────────────────────────
+    ;; ─── COMPUTE NUMBER SIZE ────────────────────────────────────────────────────────
     ;;
 
-        (func $print-17
-            ;; 1
-            (call $encode-digit-to-string-at-offset (i32.const 0)
-                                                    (i32.const 1))
-            ;; 7
-            (call $encode-digit-to-string-at-offset (i32.const 1)
-                                                    (i32.const 7))
-            ;; \n
-            (call $encode-digit-to-string-at-offset (i32.const 2)
-                                                    (i32.const 10))
-            ;; "17\n".length == 3
-            (call $set-stdout-message-size (i32.const 3))
+        ;; computes the length of integer
+        ;; digits of given number. Example:
+        ;; 12345 -> 5, 0 -> 1, 12345678 -> 8
+        (func $get-number-digits (param $input f64) (result i32)
+            (local $length i32)
+            (local.set $length (i32.const 0))
+
+            (block (result)
+                (loop (result)
+                    ;; whil input >= 0
+                    (if (result) (f64.ge (local.get $input) (f64.const 1))
+                        (then   ;; length++
+                                (local.set $length (i32.add (local.get $length)
+                                                            (i32.const 1)))
+                                ;; input = input / 10
+                                (local.set $input (f64.div (local.get $input)
+                                                           (f64.const 10)))
+                                ;; continue
+                                (br 1)
+                        )
+                        (else   ;; break
+                                (br 0)
+                        )
+                    )
+                )
+            )
+            ;; return
+            (local.get $length)
+        )
+
+    ;;
+    ;; ─── PRINT NUMBER ───────────────────────────────────────────────────────────────
+    ;;
+
+        (func $print-number (param $printable f64)
+            (local $size  i32)
+            (local $index i32)
+
+            (local.set $index       (i32.const 0))
+            (local.set $size        (call $get-number-digits (local.get $printable)))
+
+            ;; set the size of what we are
+            ;; going to print
+            (call $set-stdout-message-size (i32.add (local.get $size)
+                                                    (i32.const 1)))
+
+            ;; for each digit, encode the digit
+            ;; to the buffer memory
+            (block (result)
+                (loop (result)
+                    (if (result) (i32.le_u (local.get $index) (local.get $size))
+                        (then   ;; print a 7 there
+                                (call $encode-digit-to-string-at-offset (local.get $index)
+                                                                        (i32.const 7))
+                                ;; index++
+                                (local.set $index (i32.add (local.get $index)
+                                                           (i32.const 1)))
+                                ;; continue
+                                (br 1)
+                        )
+                        (else   ;; brea
+                                (br 0))
+                    )
+                )
+            )
+
+            ;; encode EOL to buffer
+            (call $encode-digit-to-string-at-offset (local.get $size)
+                                                    (i32.const 10)) ;; \n
+            ;; request WASI interface to
+            ;; print the buffer to stdout.
+            (call $print-to-stdout)
         )
 
     ;;
@@ -87,8 +160,7 @@
     ;;
 
         (func $main (export "_start")
-            (call $print-17)
-            (call $print-to-stdout)
+            (call $print-number (f64.const 1235811321))
         )
 
     ;; ────────────────────────────────────────────────────────────────────────────────
