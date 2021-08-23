@@ -251,7 +251,13 @@
     ;;
 
         (func $main (export "_start")
+            (call $factorial-recursive (f64.const 5))
+            (call $print-number)
+
             (call $factorial-recursive (f64.const 17))
+            (call $print-number)
+
+            (call $factorial-recursive (f64.const 18))
             (call $print-number)
         )
 
