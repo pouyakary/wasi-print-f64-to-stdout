@@ -112,6 +112,69 @@
         )
 
     ;;
+    ;; ─── GET DIGIT OF THE NUMBER ────────────────────────────────────────────────────
+    ;;
+
+        (func $compute-power-of-10 (param $power f64) (result f64)
+            (local $result f64)
+            (local $index f64)
+
+            (local.set $result (f64.const 1))
+            (local.set $index (f64.const 0))
+
+            (block (result)
+                (loop (result)
+                    (if (result) (f64.lt (local.get $index) (local.get $power))
+                        (then   ;; multiply by 10
+                                (local.set $result (f64.mul (local.get $result)
+                                                            (f64.const 10)))
+                                ;; index++
+                                (local.set $index (f64.add (local.get $index)
+                                                           (f64.const 1)))
+                                ;; continue
+                                (br 1)
+                        )
+                        (else   ;; break
+                                (br 0)
+                        )
+                    )
+                )
+            )
+
+            ;; returning
+            (local.get $result)
+        )
+
+        ;; Imagine reading the a character
+        ;; at index $index from an string.
+        ;; this is the same for number. So
+        ;; 123456[3] shall be 4
+        (func $get-digit-of-number (param $x f64) (param $size i32) (param $index i32) (result i32)
+            ;; the way we are going to do this
+            ;; is to implement this formula:
+            ;;       s = 6
+            ;;       i = 3
+            ;;       x = 123456
+            ;;
+            ;;       y = x / (10 ^ (s - (i + 1)))
+            ;;           => 1,234.56
+            ;;
+            ;;       z = floor( y - (floor(y / 10) * 10 ) )
+            ;;           => 4
+
+            (local $y f64)
+
+            (local.set $y (f64.div (local.get $x)
+                                   (call $compute-power-of-10 (f64.sub (f64.convert_i32_s (local.get $size))
+                                                                       (f64.add (f64.convert_i32_s (local.get $index))
+                                                                                (f64.const 1))))))
+            (i32.trunc_f64_u (f64.floor (f64.sub (local.get $y)
+                                                 (f64.mul (f64.floor (f64.div (local.get $y)
+                                                                     (f64.const 10)))
+                                                          (f64.const 10)))))
+        )
+
+    ;;
     ;; ─── PRINT NUMBER ───────────────────────────────────────────────────────────────
     ;;
 
@@ -119,8 +182,8 @@
             (local $size  i32)
             (local $index i32)
 
-            (local.set $index       (i32.const 0))
-            (local.set $size        (call $get-number-digits (local.get $printable)))
+            (local.set $index (i32.const 0))
+            (local.set $size  (call $get-number-digits (local.get $printable)))
 
             ;; set the size of what we are
             ;; going to print
@@ -134,15 +197,18 @@
                     (if (result) (i32.le_u (local.get $index) (local.get $size))
                         (then   ;; print a 7 there
                                 (call $encode-digit-to-string-at-offset (local.get $index)
-                                                                        (i32.const 7))
+                                                                        (call $get-digit-of-number (local.get $printable)
+                                                                                                   (local.get $size)
+                                                                                                   (local.get $index)))
                                 ;; index++
                                 (local.set $index (i32.add (local.get $index)
                                                            (i32.const 1)))
                                 ;; continue
                                 (br 1)
                         )
-                        (else   ;; brea
-                                (br 0))
+                        (else   ;; break
+                                (br 0)
+                        )
                     )
                 )
             )
@@ -160,7 +226,7 @@
     ;;
 
         (func $main (export "_start")
-            (call $print-number (f64.const 1235811321))
+            (call $print-number (f64.const 1235813121))
         )
 
     ;; ────────────────────────────────────────────────────────────────────────────────
