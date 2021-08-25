@@ -5,12 +5,9 @@
     ;; ─── IMPORTS ────────────────────────────────────────────────────────────────────
     ;;
 
+        ;; things that WASI wants...
         (import "wasi_unstable" "fd_write"
             (func $fd-write (param i32 i32 i32 i32) (result i32)))
-
-    ;;
-    ;; ─── GLOBALS ────────────────────────────────────────────────────────────────────
-    ;;
 
         (memory 1)
         (export "memory" (memory 0))
@@ -144,21 +141,20 @@
         ;; at index $index from an string.
         ;; this is the same for number. So
         ;; 123456[3] shall be 4
-        (func $get-digit-of-number (param $x f64) (param $size i32) (param $index i32) (result i32)
-            ;; the way we are going to do this
-            ;; is to implement this formula:
-            ;;       s = 6
-            ;;       i = 3
-            ;;       x = 123456
-            ;;
-            ;;       y = x / (10 ^ (s - (i + 1)))
-            ;;           => 1,234.56
-            ;;
-            ;;       z = floor( y - (floor(y / 10) * 10 ) )
-            ;;           => 4
+        (func $get-digit-of-number (param $x f64)
+                                   (param $size i32)
+                                   (param $index i32)
+                                   (result i32)
 
             (local $y f64)
 
+            ;; the way we are going to do this
+            ;; is to implement this formula:
+            ;;    s = 6, i = 3, x = 123456
+            ;;    y = x / (10 ^ (s - (i + 1)))
+            ;;        => 1,234.56
+            ;;    z = floor( y - (floor(y / 10) * 10 ) )
+            ;;        => 4
             (local.set $y (f64.div (local.get $x)
                                    (call $compute-power-of-10 (f64.sub (f64.convert_i32_s (local.get $size))
                                                                        (f64.add (f64.convert_i32_s (local.get $index))
@@ -240,17 +236,12 @@
             ;; is n == 1?
             (if (result f64) (f64.eq (local.get $n) (f64.const 1))
                 (then   ;; if so, return: 1
-                        f64.const 1
+                        (f64.const 1)
                 )
-                (else   ;; n - 1
-                        local.get $n
-                        f64.const 1
-                        f64.sub
-                        ;; fac(n - 1)
-                        call $factorial-recursive
-                        ;; n * fac(n - 1)
-                        local.get $n
-                        f64.mul
+                (else   ;; n * fac(n - 1)
+                        (f64.mul (local.get $n)
+                                 (call $factorial-recursive (f64.sub (local.get $n)
+                                                                     (f64.const 1))))
                 )
             )
         )
